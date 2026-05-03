@@ -1,0 +1,31 @@
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Environment variables -NEVER commit secrets
+.env
+.env.*
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# WatchDiff runtime data
+.watchdiff/
+.watchdiff-*/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*

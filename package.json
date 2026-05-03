@@ -1,0 +1,42 @@
+{
+  "name": "watchdiff-core",
+  "version": "0.1.0",
+  "description": "Lightweight web change monitoring - clean diffs, structured alerts, no AI required.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "watchdiff": "./dist/cli/main.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup && tsc --declaration --declarationMap --emitDeclarationOnly",
+    "postbuild": "node -e \"const fs=require('fs');const f='dist/cli/main.js';let c=fs.readFileSync(f,'utf8');c=c.replace(/^(#!\\/usr\\/bin\\/env node\\n)+/,'#!/usr/bin/env node\\n');fs.writeFileSync(f,c)\" && chmod +x dist/cli/main.js",
+    "test": "vitest --run",
+    "typecheck": "tsc --noEmit",
+    "dev": "vitest"
+  },
+  "keywords": ["watchdiff", "web", "monitoring", "diff", "change-detection"],
+  "author": "",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "cheerio": "^1.2.0",
+    "commander": "^14.0.3",
+    "diff": "^9.0.0",
+    "ora": "^9.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  }
+}
