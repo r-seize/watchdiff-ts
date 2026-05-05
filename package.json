@@ -1,6 +1,6 @@
 {
   "name": "watchdiff-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lightweight web change monitoring - clean diffs, structured alerts, no AI required.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -27,13 +27,27 @@
   "author": "",
   "license": "GPL-3.0",
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.4",
     "chalk": "^5.6.2",
     "cheerio": "^1.2.0",
     "commander": "^14.0.3",
     "diff": "^9.0.0",
-    "ora": "^9.4.0"
+    "ora": "^9.4.0",
+    "undici": "^6.21.0",
+    "xpath": "^0.0.34"
+  },
+  "peerDependencies": {
+    "better-sqlite3": ">=9.0.0",
+    "exceljs": ">=4.0.0",
+    "playwright": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": { "optional": true },
+    "exceljs": { "optional": true },
+    "playwright": { "optional": true }
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.19.17",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
