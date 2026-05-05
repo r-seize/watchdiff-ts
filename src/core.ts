@@ -56,6 +56,8 @@ export interface WatchOptions {
     webhooks?: string[];
     /** Minimum changes required to trigger an alert. */
     minChanges?: number;
+    /** Minimum seconds between two consecutive alerts for this URL (anti-spam). */
+    cooldown?: number;
 }
 
 export class WatchDiff {
@@ -99,18 +101,19 @@ export class WatchDiff {
 
         this.configs.push(
             makeWatchConfig(url, {
-                target:         opts.target,
-                interval:       opts.interval,
-                label:          opts.label,
-                headers:        opts.headers,
-                timeout:        opts.timeout,
+                target:          opts.target,
+                interval:        opts.interval,
+                label:           opts.label,
+                headers:         opts.headers,
+                timeout:         opts.timeout,
                 ignoreSelectors: opts.ignoreSelectors,
-                ignorePatterns: opts.ignorePatterns,
-                browser:        opts.browser,
-                browserOptions: opts.browserOptions,
-                proxies:        opts.proxies,
-                userAgents:     opts.userAgents,
-                diffMode:       opts.diffMode,
+                ignorePatterns:  opts.ignorePatterns,
+                browser:         opts.browser,
+                browserOptions:  opts.browserOptions,
+                proxies:         opts.proxies,
+                userAgents:      opts.userAgents,
+                diffMode:        opts.diffMode,
+                cooldown:        opts.cooldown,
                 alert,
             })
         );

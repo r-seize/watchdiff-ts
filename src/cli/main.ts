@@ -8,7 +8,7 @@ import type { WatchOptions } from "../core.js";
 program
     .name("watchdiff")
     .description("Lightweight web change monitoring - clean diffs, no AI required.")
-    .version("0.1.1");
+    .version("0.1.2");
 
 // ---------------------------------------------------------------------------
 // run
@@ -26,6 +26,7 @@ program
     .option("--proxy <url>",              "Proxy URL (e.g. http://user:pass@host:port)")
     .option("--user-agent <ua>",          "Custom User-Agent string")
     .option("--diff-mode <mode>",         "Diff mode: 'line' (default) or 'semantic'")
+    .option("--cooldown <seconds>",       "Minimum seconds between two alerts for the same URL (anti-spam)")
     .action((url: string | undefined, opts: Record<string, string | boolean | undefined>) => {
         const storage = (opts["storage"] as string | undefined) ?? ".watchdiff";
         const wd      = new WatchDiff(storage);
@@ -279,6 +280,7 @@ program
                     label:            "Example - Product Price",
                     browser:          false,
                     diffMode:         "line",
+                    cooldown:         0,
                     webhooks:         [] as string[],
                     ignoreSelectors:  [] as string[],
                     proxies:          [] as string[],
@@ -301,19 +303,20 @@ program
 interface ConfigFile {
     storage?: string;
     watches: Array<{
-        url:             string;
-        target?:         string;
-        interval?:       number;
-        label?:          string;
-        browser?:        boolean;
-        diffMode?:       string;
-        webhooks?:       string[];
+        url:              string;
+        target?:          string;
+        interval?:        number;
+        label?:           string;
+        browser?:         boolean;
+        diffMode?:        string;
+        webhooks?:        string[];
         ignoreSelectors?: string[];
-        proxies?:        string[];
-        userAgents?:     string[];
-        headers?:        Record<string, string>;
-        timeout?:        number;
-        minChanges?:     number;
+        proxies?:         string[];
+        userAgents?:      string[];
+        headers?:         Record<string, string>;
+        timeout?:         number;
+        minChanges?:      number;
+        cooldown?:        number;
     }>;
 }
 
@@ -345,19 +348,21 @@ function applyConfig(wd: WatchDiff, cfg: ConfigFile): void {
             headers:          w.headers,
             timeout:          w.timeout,
             minChanges:       w.minChanges,
+            cooldown:         w.cooldown,
         });
     }
 }
 
 function buildWatchOptions(opts: Record<string, string | boolean | undefined>): WatchOptions {
     const result: WatchOptions = {};
-    if (opts["target"])     result.target    = opts["target"] as string;
-    if (opts["interval"])   result.interval  = parseInt(opts["interval"] as string, 10);
-    if (opts["webhook"])    result.webhooks  = [opts["webhook"] as string];
-    if (opts["browser"])    result.browser   = true;
-    if (opts["proxy"])      result.proxies   = [opts["proxy"] as string];
+    if (opts["target"])     result.target     = opts["target"] as string;
+    if (opts["interval"])   result.interval   = parseInt(opts["interval"] as string, 10);
+    if (opts["webhook"])    result.webhooks   = [opts["webhook"] as string];
+    if (opts["browser"])    result.browser    = true;
+    if (opts["proxy"])      result.proxies    = [opts["proxy"] as string];
     if (opts["userAgent"])  result.userAgents = [opts["userAgent"] as string];
-    if (opts["diffMode"])   result.diffMode  = opts["diffMode"] as WatchOptions["diffMode"];
+    if (opts["diffMode"])   result.diffMode   = opts["diffMode"] as WatchOptions["diffMode"];
+    if (opts["cooldown"])   result.cooldown   = parseInt(opts["cooldown"] as string, 10);
     return result;
 }
 

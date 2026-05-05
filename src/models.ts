@@ -60,6 +60,8 @@ export interface WatchConfig {
     userAgents?: string[];
     /** "line" = line-by-line diff (default), "semantic" = diff by semantic blocks. */
     diffMode?: DiffMode;
+    /** Minimum seconds between two consecutive alerts for this URL (anti-spam). */
+    cooldown?: number;
     alert?: AlertConfig;
 }
 
@@ -81,6 +83,7 @@ export function makeWatchConfig(
         proxies:          opts.proxies,
         userAgents:       opts.userAgents,
         diffMode:         opts.diffMode,
+        cooldown:         opts.cooldown,
         alert:            opts.alert,
     };
 }

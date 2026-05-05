@@ -32,6 +32,8 @@ export class Scheduler {
     private readonly notifier                                   = new Notifier();
     private readonly globalCallbacks: GlobalCallback[]          = [];
     private readonly timers: ReturnType<typeof setInterval>[]   = [];
+    // Tracks last alert timestamp (ms) per "url::target" key for cooldown enforcement
+    private readonly lastAlertAt                                = new Map<string, number>();
 
     constructor(private readonly store: IStore) { }
 
@@ -125,18 +127,32 @@ export class Scheduler {
             this.store.saveReport(report);
             console.info(`[${config.label}] ${reportSummary(report)}`);
 
-            // Global callbacks
-            for (const cb of this.globalCallbacks) {
-                try {
-                    await cb(report);
-                } catch (err) {
-                    console.warn("[watchdiff] Global callback error:", err);
-                }
-            }
+            // Cooldown check - suppress alerts if minimum delay between two alerts has not elapsed
+            const alertKey      = `${config.url}::${config.target ?? ""}`;
+            const now           = Date.now();
+            const lastAlert     = this.lastAlertAt.get(alertKey) ?? 0;
+            const cooldownMs    = (config.cooldown ?? 0) * 1000;
+            const cooldownReady = now - lastAlert >= cooldownMs;
 
-            // Per-config alert
-            if (config.alert) {
-                await this.notifier.notify(report, config.alert);
+            if (!cooldownReady) {
+                const remaining = Math.ceil((cooldownMs - (now - lastAlert)) / 1000);
+                console.debug(`[${config.label}] Alert suppressed - cooldown active (${remaining}s remaining).`);
+            } else {
+                this.lastAlertAt.set(alertKey, now);
+
+                // Global callbacks
+                for (const cb of this.globalCallbacks) {
+                    try {
+                        await cb(report);
+                    } catch (err) {
+                        console.warn("[watchdiff] Global callback error:", err);
+                    }
+                }
+
+                // Per-config alert
+                if (config.alert) {
+                    await this.notifier.notify(report, config.alert);
+                }
             }
         } else {
             console.debug(`[${config.label}] No changes.`);

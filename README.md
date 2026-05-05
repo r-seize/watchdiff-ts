@@ -14,8 +14,49 @@ No noisy HTML diffs. No external services. No AI black boxes.
 - **SQLite backend** - optional, for high-volume workloads
 - **CSV / XLSX export** - full history export in one command
 - **Zero external services** - snapshots stored locally as JSON or SQLite
+- **Alert cooldown** - minimum delay between two alerts per URL to prevent notification spam
 - **Fully typed** - complete TypeScript types included
 - **Native fetch** - no HTTP library dependency, runs on Node.js 18+
+
+
+## At a glance
+
+| What you want | How |
+|---|---|
+| Monitor a URL for changes | `.watch(url, { interval, target })` + `.start()` |
+| Target a specific element | `target: ".price"` (CSS) or `target: "//span[@class='p']"` (XPath) |
+| Get notified on change | `onChange: (report) => ...` or `webhooks: ["https://discord.com/..."]` |
+| Render JS-heavy pages | `browser: true` (requires playwright) |
+| Avoid notification spam | `cooldown: 3600` (min seconds between alerts) |
+| Rotate proxies / UAs | `proxies: [...]`, `userAgents: [...]` |
+| Diff at paragraph level | `diffMode: "semantic"` |
+| Persist to SQLite | `new WatchDiff(undefined, new SqliteStore(".db"))` |
+| Export history | `.exportReportsCsv(url)` / `.exportReportsXlsx(url)` |
+| CLI one-liner | `watchdiff run https://example.com --target .price --interval 60` |
+| Multi-URL config file | `watchdiff init` then edit `watchdiff.config.json` |
+
+### Quick navigation
+
+- [Install](#install)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [API reference](#api)
+- [Feature details](#feature-details)
+  - [JS-heavy pages (Playwright)](#js-heavy-pages-playwright)
+  - [Proxy rotation](#proxy-rotation)
+  - [User-Agent rotation](#user-agent-rotation)
+  - [XPath selectors](#xpath-selectors)
+  - [Semantic diff mode](#semantic-diff-mode)
+  - [Alert cooldown](#alert-cooldown)
+  - [SQLite storage backend](#sqlite-storage-backend)
+  - [CSV and XLSX export](#csv-and-xlsx-export)
+  - [Config file](#watchdiff-init---config-file)
+- [Types](#types)
+- [Helper functions](#helper-functions)
+- [CLI reference](#cli)
+- [Webhooks](#webhooks)
+- [Advanced usage](#advanced-usage)
+- [Optional dependencies](#optional-dependencies)
 
 
 ## Also available for Python
@@ -107,6 +148,7 @@ Register a URL to monitor.
 | `onChange` | `fn \| fn[]` | - | Callback(s) receiving a `DiffReport` on each change |
 | `webhooks` | `string[]` | `[]` | Discord / Slack / custom POST endpoints |
 | `minChanges` | `number` | `1` | Minimum changes required to trigger an alert |
+| `cooldown` | `number` | `0` | Minimum seconds between two consecutive alerts (anti-spam) |
 
 ```typescript
 wd
@@ -308,6 +350,40 @@ When the HTML contains no block-level elements (e.g. a plain-text response), it 
 back to line-level diff automatically.
 
 
+### Alert cooldown
+
+Set a minimum delay between two consecutive alerts for the same URL. Useful to avoid
+notification storms when a page changes on every check (e.g. live counters, timestamps).
+
+```typescript
+wd.watch("https://example.com/live-stats", {
+  target:   ".visitor-count",
+  interval: 30,
+  cooldown: 3600,  // at most one alert per hour, even if content changes every 30s
+  onChange: (report) => sendNotification(report),
+});
+```
+
+When a change is detected but the cooldown has not elapsed, the change is still stored
+in the snapshot history and the diff report is saved - only the alert (callbacks +
+webhooks) is suppressed. A debug log line is printed with the remaining time.
+
+```bash
+# CLI: suppress alerts for 10 minutes minimum
+watchdiff run https://example.com --target .price --cooldown 600
+```
+
+In a config file:
+
+```json
+{
+  "url": "https://example.com",
+  "interval": 60,
+  "cooldown": 1800
+}
+```
+
+
 ### SQLite storage backend
 
 The default storage writes one JSON file per watched URL. For high-volume monitoring
@@ -389,6 +465,7 @@ The generated file:
       "label": "Example - Product Price",
       "browser": false,
       "diffMode": "line",
+      "cooldown": 0,
       "webhooks": [],
       "ignoreSelectors": [],
       "proxies": [],
