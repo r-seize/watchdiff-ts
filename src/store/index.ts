@@ -12,10 +12,11 @@ import {
     makeSnapshot,
     reportAsDict,
     type DiffReport,
+    type IStore,
     type Snapshot,
 } from "../models.js";
 
-export class Store {
+export class Store implements IStore {
     private readonly dir: string;
 
     constructor(directory = ".watchdiff") {
