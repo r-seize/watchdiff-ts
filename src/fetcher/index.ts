@@ -1,13 +1,23 @@
 /**
  * Fetcher - retrieves raw HTML from a URL using the native fetch API (Node 18+).
+ *
+ * Supports proxy rotation and User-Agent rotation via WatchConfig.
+ * When proxies are provided, uses undici ProxyAgent for per-request proxy selection.
  */
 
 import type { WatchConfig } from "../models.js";
 
-const DEFAULT_HEADERS: Record<string, string> = {
-    "User-Agent":
-        "Mozilla/5.0 (compatible; WatchDiff/0.1; +https://github.com/watchdiff/watchdiff)",
-    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+const DEFAULT_USER_AGENTS: readonly string[] = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (compatible; WatchDiff/0.2; +https://github.com/watchdiff/watchdiff)",
+];
+
+const FALLBACK_UA = "Mozilla/5.0 (compatible; WatchDiff/0.2)";
+
+const BASE_HEADERS: Record<string, string> = {
+    Accept:            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
 };
 
@@ -23,16 +33,21 @@ export class FetchError extends Error {
 
 export class Fetcher {
     async fetch(config: WatchConfig): Promise<string> {
-        const headers       = { ...DEFAULT_HEADERS, ...config.headers };
-        const controller    = new AbortController();
-        const timer         = setTimeout(() => controller.abort(), config.timeout);
+        const userAgent  = pickRandom(config.userAgents ?? []) ?? pickRandom([...DEFAULT_USER_AGENTS]) ?? FALLBACK_UA;
+        const headers    = { ...BASE_HEADERS, "User-Agent": userAgent, ...config.headers };
+        const controller = new AbortController();
+        const timer      = setTimeout(() => controller.abort(), config.timeout);
 
         try {
-            const response = await globalThis.fetch(config.url, {
-                headers,
-                signal: controller.signal,
-                redirect: "follow",
-            });
+            const proxy = pickRandom(config.proxies ?? []);
+
+            const response = proxy
+                ? await this.fetchWithProxy(config.url, headers, controller.signal, proxy)
+                : await globalThis.fetch(config.url, {
+                    headers,
+                    signal:   controller.signal,
+                    redirect: "follow",
+                });
 
             if (!response.ok) {
                 throw new FetchError(
@@ -54,4 +69,39 @@ export class Fetcher {
             clearTimeout(timer);
         }
     }
+
+    private async fetchWithProxy(
+        url: string,
+        headers: Record<string, string>,
+        signal: AbortSignal,
+        proxy: string
+    ): Promise<Response> {
+        try {
+            // any: undici types differ slightly from globalThis.fetch types - both are valid
+            type UndiciModule = {
+                fetch(input: string, init: Record<string, unknown>): Promise<Response>;
+                ProxyAgent: new (uri: string) => unknown;
+            };
+            const undici        = await import("undici") as unknown as UndiciModule;
+            const dispatcher    = new undici.ProxyAgent(proxy);
+            return undici.fetch(url, { headers, signal, redirect: "follow", dispatcher });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("undici") || msg.includes("Cannot find")) {
+                console.warn("[watchdiff] undici unavailable - proxy ignored. Run: npm install undici");
+                return globalThis.fetch(url, { headers, signal, redirect: "follow" });
+            }
+            throw err;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function pickRandom<T>(pool: readonly T[]): T | undefined {
+    if (pool.length === 0) return undefined;
+    const idx = Math.floor(Math.random() * pool.length);
+    return pool[idx];
 }
