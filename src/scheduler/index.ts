@@ -4,34 +4,36 @@
  * Uses setInterval under the hood. Each WatchConfig gets its own timer
  * so independent intervals are fully supported.
  *
- * The full pipeline per check:
- *   Fetcher → Cleaner → Parser → DiffEngine → Store → Notifier
+ * Full pipeline per check:
+ *   Fetcher/BrowserFetcher - Cleaner - Parser - DiffEngine - Store - Notifier
  */
 
 import { Cleaner } from "../cleaner/index.js";
 import { DiffEngine } from "../diff/index.js";
 import { FetchError, Fetcher } from "../fetcher/index.js";
+import { BrowserFetcher } from "../fetcher/browser.js";
 import {
     reportHasChanges,
     reportSummary,
     type DiffReport,
+    type IStore,
     type WatchConfig,
 } from "../models.js";
 import { Notifier } from "../notifier/index.js";
 import { ParserError, Parser } from "../parser/index.js";
-import { Store } from "../store/index.js";
 
 export type GlobalCallback = (report: DiffReport) => void | Promise<void>;
 
 export class Scheduler {
     private readonly fetcher                                    = new Fetcher();
+    private readonly browserFetcher                            = new BrowserFetcher();
     private readonly parser                                     = new Parser();
     private readonly engine                                     = new DiffEngine();
     private readonly notifier                                   = new Notifier();
     private readonly globalCallbacks: GlobalCallback[]          = [];
     private readonly timers: ReturnType<typeof setInterval>[]   = [];
 
-    constructor(private readonly store: Store) { }
+    constructor(private readonly store: IStore) { }
 
     addGlobalCallback(cb: GlobalCallback): void {
         this.globalCallbacks.push(cb);
@@ -52,7 +54,7 @@ export class Scheduler {
             // Run immediately, then on interval
             void this.check(config);
             const timer = setInterval(() => void this.check(config), config.interval * 1000);
-            // Unref so the process can exit naturally if nothing else is keeping it alive
+            // Unref so the process can exit naturally if nothing else keeps it alive
             if (typeof timer === "object" && "unref" in timer) {
                 (timer as NodeJS.Timeout).unref();
             }
@@ -80,10 +82,12 @@ export class Scheduler {
     // ------------------------------------------------------------------
 
     private async check(config: WatchConfig): Promise<DiffReport | null> {
-        // 1. Fetch
+        // 1. Fetch (static or browser-rendered)
         let html: string;
         try {
-            html = await this.fetcher.fetch(config);
+            html = config.browser
+                ? await this.browserFetcher.fetch(config)
+                : await this.fetcher.fetch(config);
         } catch (err) {
             console.error(`[${config.label}] Fetch failed:`, err instanceof Error ? err.message : err);
             return null;
@@ -92,11 +96,11 @@ export class Scheduler {
         // 2. Clean
         const cleaner = new Cleaner({
             extraSelectors: config.ignoreSelectors,
-            extraPatterns: config.ignorePatterns,
+            extraPatterns:  config.ignorePatterns,
         });
         const $ = cleaner.clean(html);
 
-        // 3. Parse
+        // 3. Parse (CSS or XPath)
         let snapshot;
         try {
             snapshot = this.parser.extract($, config);
