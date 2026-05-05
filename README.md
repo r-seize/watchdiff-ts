@@ -658,30 +658,6 @@ wd.watch("https://rss.example.com/feed.xml", {
 });
 ```
 
-
-## Architecture
-
-```
-src/
-+-- index.ts          public exports
-+-- core.ts           WatchDiff facade
-+-- models.ts         types + pure helper functions + IStore interface
-+-- fetcher/
-|   +-- index.ts      native fetch, UA/proxy rotation
-|   +-- browser.ts    Playwright headless browser
-+-- cleaner/          cheerio-based noise removal
-+-- parser/           CSS selector + XPath extraction -> Snapshot
-+-- diff/             Myers diff, line mode + semantic block mode
-+-- store/
-|   +-- index.ts      JSON filesystem persistence
-|   +-- sqlite.ts     SQLite backend (better-sqlite3)
-+-- exporter/         CSV and XLSX export
-+-- notifier/         callbacks + webhook dispatch
-+-- scheduler/        setInterval loop, one timer per URL
-+-- cli/              commander CLI (watchdiff binary)
-```
-
-
 ## Optional dependencies
 
 | Feature | Package to install |
