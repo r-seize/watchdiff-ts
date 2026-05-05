@@ -14,6 +14,17 @@ export type ChangeType = "added" | "removed" | "modified" | "unchanged";
 // Configuration
 // ---------------------------------------------------------------------------
 
+export type DiffMode = "line" | "semantic";
+
+export interface BrowserOptions {
+    /** Navigation event to wait for before extracting content (default: "domcontentloaded"). */
+    waitFor?: "load" | "domcontentloaded" | "networkidle";
+    /** Additional CSS selector to wait for after navigation. */
+    waitForSelector?: string;
+    /** Browser executable path override. */
+    executablePath?: string;
+}
+
 export interface AlertConfig {
     /** Callbacks invoked with a DiffReport on each change. */
     onChange: Array<(report: DiffReport) => void | Promise<void>>;
@@ -25,7 +36,7 @@ export interface AlertConfig {
 
 export interface WatchConfig {
     url: string;
-    /** CSS selector to narrow monitoring. undefined = full page. */
+    /** CSS selector or XPath expression to narrow monitoring. undefined = full page. */
     target?: string;
     /** Seconds between checks (default 300). */
     interval: number;
@@ -39,6 +50,16 @@ export interface WatchConfig {
     ignoreSelectors: string[];
     /** Regex patterns to strip from text before diffing. */
     ignorePatterns: RegExp[];
+    /** Use a headless browser (Playwright) to render JS-heavy pages. */
+    browser?: boolean;
+    /** Options passed to the headless browser. */
+    browserOptions?: BrowserOptions;
+    /** List of proxy URLs to rotate through (e.g. "http://user:pass@host:port"). */
+    proxies?: string[];
+    /** List of User-Agent strings to rotate through on each request. */
+    userAgents?: string[];
+    /** "line" = line-by-line diff (default), "semantic" = diff by semantic blocks. */
+    diffMode?: DiffMode;
     alert?: AlertConfig;
 }
 
@@ -48,14 +69,19 @@ export function makeWatchConfig(
 ): WatchConfig {
     return {
         url,
-        target: opts.target,
-        interval: opts.interval ?? 300,
-        label: opts.label ?? url,
-        headers: opts.headers ?? {},
-        timeout: opts.timeout ?? 15_000,
-        ignoreSelectors: opts.ignoreSelectors ?? [],
-        ignorePatterns: opts.ignorePatterns ?? [],
-        alert: opts.alert,
+        target:           opts.target,
+        interval:         opts.interval ?? 300,
+        label:            opts.label ?? url,
+        headers:          opts.headers ?? {},
+        timeout:          opts.timeout ?? 15_000,
+        ignoreSelectors:  opts.ignoreSelectors ?? [],
+        ignorePatterns:   opts.ignorePatterns ?? [],
+        browser:          opts.browser,
+        browserOptions:   opts.browserOptions,
+        proxies:          opts.proxies,
+        userAgents:       opts.userAgents,
+        diffMode:         opts.diffMode,
+        alert:            opts.alert,
     };
 }
 
@@ -155,4 +181,18 @@ export function reportAsDict(report: DiffReport): Record<string, unknown> {
             context: c.context,
         })),
     };
+}
+
+// ---------------------------------------------------------------------------
+// Store contract
+// ---------------------------------------------------------------------------
+
+/** Common interface implemented by both Store (JSON) and SqliteStore. */
+export interface IStore {
+    saveSnapshot(snapshot: Snapshot): void;
+    loadLatest(url: string, target: string | undefined): Snapshot | null;
+    loadHistory(url: string, target: string | undefined, limit?: number): Snapshot[];
+    clearHistory(url: string, target: string | undefined): void;
+    saveReport(report: DiffReport): void;
+    loadReports(url: string, target: string | undefined, limit?: number): Record<string, unknown>[];
 }
